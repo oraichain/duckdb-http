@@ -1,13 +1,11 @@
 # DuckDB HTTP SQLAlchemy Plugin
 
-A lightweight SQLAlchemy dialect/plugin for connecting to **DuckDB**, supporting schema inspection and table listing. Works with **Superset** for visualization.
+A lightweight SQLAlchemy dialect/plugin for connecting to **DuckDB**, on top of httpserver duckdb extension. Works with **Superset** for visualization.
 
 ## Features
 
 - Connect to DuckDB via SQLAlchemy.
-- List schemas and tables.
-- Inspect table columns and types.
-- Compatible with Superset.
+- Support multiple connection read/write.
 
 ---
 
