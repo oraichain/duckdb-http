@@ -3,6 +3,7 @@ import requests
 from sqlalchemy.engine import default
 from sqlalchemy import types as sqltypes
 from sqlalchemy.sql.expression import text
+from sqlalchemy.engine.reflection import cache
 
 # --- DBAPI stub ---
 class DuckDBHTTPDBAPI:
@@ -173,11 +174,13 @@ class DuckDBHTTPDialect(default.DefaultDialect):
         result = connection.execute(sql)
         return [row[0] for row in result.fetchall()]
 
+    @cache # type: ignore[call-arg]
     def get_schema_names(self, connection, **kw):
         sql = text("SELECT database_name, schema_name AS nspname FROM duckdb_schemas() ORDER BY database_name, nspname")
         result = connection.execute(sql)
         return [row[0] for row in result.fetchall()]
 
+    @cache # type: ignore[call-arg]
     def get_table_names(self, connection, schema=None, **kw):
         sql = text("SELECT database_name, schema_name, table_name FROM duckdb_tables()")
         result = connection.execute(sql)
