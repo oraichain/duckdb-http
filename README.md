@@ -16,12 +16,6 @@ A lightweight SQLAlchemy dialect/plugin for connecting to **DuckDB**, on top of 
 ## Installation
 
 ```bash
-git clone https://github.com/oraichain/duckdb-http.git
-```
-
-Then, install this plugin (if packaged locally):
-
-```bash
 pip install duckdb-http
 ```
 
