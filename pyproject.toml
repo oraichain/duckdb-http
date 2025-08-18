@@ -4,10 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "duckdb_http"
-version = "0.1"
+version = "0.1.1"
 description = "DuckDB HTTP dialect for SQLAlchemy"
 readme = "README.md"
 requires-python = ">=3.8"
+license = { text = "MIT" }
 authors = [{ name = "Oraichain Labs", email = "tu@orai.io" }]
 dependencies = [
     "duckdb==1.3.2",
@@ -15,6 +16,10 @@ dependencies = [
     "requests",
     "sqlglot==27.6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/oraichain/duckdb-http.git"
+Repository = "https://github.com/oraichain/duckdb-http.git"
 
 [project.entry-points."sqlalchemy.dialects"]
 duckdb_http = "duckdb_http:DuckDBHTTPDialect"
