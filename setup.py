@@ -9,5 +9,5 @@ setup(
             "duckdb_http = duckdb_http:DuckDBHTTPDialect",
         ],
     },
-    install_requires=["sqlalchemy==1.4.54", "requests"],
+    install_requires=["sqlalchemy==1.4.54", "requests", "sqlglot==27.6.0"],
 )

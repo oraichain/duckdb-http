@@ -9,6 +9,7 @@ A lightweight SQLAlchemy dialect/plugin for connecting to **DuckDB**, on top of 
 - Support auth:
   - Basic auth : duckdb_http://alice:secret@localhost:9999
   - API key: duckdb_http://localhost:9999?api_key=SECRETKEY
+- Read only mode: add ?read_only=true
 
 ---
 

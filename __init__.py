@@ -4,6 +4,24 @@ from sqlalchemy.engine import default
 from sqlalchemy import types as sqltypes
 from sqlalchemy.sql.expression import text
 from sqlalchemy.engine.reflection import cache
+from sqlglot import parse_one, exp
+
+def is_read_only(sql: str) -> bool:
+    tree = parse_one(sql, error_level="ignore")
+    if tree is None:
+        return False
+
+    # Regular SELECT / UNION queries
+    if isinstance(tree, (exp.Select, exp.Union)):
+        return True
+
+    # SHOW / PRAGMA / EXPLAIN and similar commands
+    if isinstance(tree, exp.Command):
+        cmd = (tree.name or "").upper()
+        if cmd in {"SHOW", "PRAGMA", "EXPLAIN"}:
+            return True
+
+    return False
 
 # --- DBAPI stub ---
 class DuckDBHTTPDBAPI:
@@ -13,12 +31,13 @@ class DuckDBHTTPDBAPI:
         pass
 
     class Connection:
-        def __init__(self, url, api_key=None):
+        def __init__(self, url, api_key=None, read_only=False):
             self.url = url
             self.api_key = api_key
+            self.read_only = read_only
 
         def cursor(self):
-            return DuckDBHTTPDBAPI.Cursor(self.url, self.api_key)
+            return DuckDBHTTPDBAPI.Cursor(self.url, self.api_key, self.read_only)
 
         def close(self):
             pass
@@ -30,9 +49,10 @@ class DuckDBHTTPDBAPI:
             pass
 
     class Cursor:
-        def __init__(self, url, api_key=None):
+        def __init__(self, url, api_key=None, read_only=False):
             self.url = url
             self.api_key = api_key
+            self.read_only = read_only
             self._results = []
             self._row_idx = 0
             self.description = []
@@ -41,6 +61,10 @@ class DuckDBHTTPDBAPI:
         def execute(self, query, parameters=None):
             if parameters:
                 query = query % parameters
+
+            # support read-only
+            if self.read_only and not is_read_only(query):
+                raise PermissionError(f"Blocked non-read query: {query}")
 
             headers = {}
             if self.api_key:
@@ -113,7 +137,7 @@ class DuckDBHTTPDBAPI:
         basic_auth = f"{username}:{password}"
         full_host = f"{basic_auth}@{host}" if basic_auth else host
         url = f"http://{full_host}:{port}/"        
-        return DuckDBHTTPDBAPI.Connection(url, kw.get("api_key"))
+        return DuckDBHTTPDBAPI.Connection(url, kw.get("api_key"), (kw.get("read_only") or "").lower() == "true")
 
 
 # --- SQLAlchemy Dialect ---
