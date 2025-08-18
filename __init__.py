@@ -250,13 +250,14 @@ class DuckDBHTTPDialect(default.DefaultDialect):
 
     @cache # type: ignore[call-arg]
     def get_schema_names(self, connection, **kw):
-        sql = text("SELECT database_name, schema_name AS nspname FROM duckdb_schemas() ORDER BY database_name, nspname")
+        sql = text("SELECT DISTINCT schema_name AS nspname FROM duckdb_schemas() ORDER BY nspname")
         result = connection.execute(sql)
         return [row[0] for row in result.fetchall()]
 
     @cache # type: ignore[call-arg]
     def get_table_names(self, connection, schema=None, **kw):
-        sql = text("SELECT database_name, schema_name, table_name FROM duckdb_tables()")
+        where =  f" WHERE schema_name='{schema}'" if schema else ""
+        sql = text(f"SELECT table_name FROM duckdb_tables(){where}")
         result = connection.execute(sql)
         return [row[0] for row in result.fetchall()]
 
