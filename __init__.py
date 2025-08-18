@@ -231,7 +231,7 @@ class DuckDBHTTPDialect(default.DefaultDialect):
         full_table = f"{schema}.{table_name}" if schema else table_name
         sql = text(f"PRAGMA table_info('{full_table}')")
         result = connection.execute(sql)
-        pk_columns = [row[1] for row in result.fetchall() if row[5] == "true"]
+        pk_columns = [row[1] for row in result if row[5] == "true"]
         return {"constrained_columns": pk_columns, "name": None}
 
     def get_foreign_keys(self, connection, table_name, schema=None, **kw):
@@ -246,36 +246,44 @@ class DuckDBHTTPDialect(default.DefaultDialect):
     def get_view_names(self, connection, schema=None, **kw):
         sql = text(f"SELECT table_name FROM information_schema.tables WHERE table_type='VIEW' AND table_schema = '{schema}'")
         result = connection.execute(sql)
-        return [row[0] for row in result.fetchall()]
+        return [row.table_name for row in result]
 
     @cache # type: ignore[call-arg]
     def get_schema_names(self, connection, **kw):
         sql = text("SELECT DISTINCT schema_name AS nspname FROM duckdb_schemas() ORDER BY nspname")
         result = connection.execute(sql)
-        return [row[0] for row in result.fetchall()]
+        return [row.nspname for row in result]
 
     @cache # type: ignore[call-arg]
     def get_table_names(self, connection, schema=None, **kw):
         where =  f" WHERE schema_name='{schema}'" if schema else ""
         sql = text(f"SELECT table_name FROM duckdb_tables(){where}")
         result = connection.execute(sql)
-        return [row[0] for row in result.fetchall()]
+        return [row.table_name for row in result]
 
-    def get_columns(self, connection, table_name, schema=None, **kw):        
+    def get_columns(self, connection, table_name, schema=None, **kw):
+        # Fully qualified table name
         full_table = f"{schema}.{table_name}" if schema else table_name
-        sql = text(f"DESCRIBE {full_table}")
+
+        # Use PRAGMA table_info instead of DESCRIBE
+        sql = text(f"PRAGMA table_info('{full_table}')")
         result = connection.execute(sql)
+
         columns = []
-        for row in result.fetchall():            
-            coltype = self._map_type(row[1])
+        for row in result:
+            colname = row[1]          # "name"
+            coltype = self._map_type(row[2])  # "type"
+            notnull = row[3]          # 1 = NOT NULL, 0 = NULLABLE
+            default = row[4]          # default value (as SQL expression string)
+            pk = row[5]               # >0 if part of primary key
+
             columns.append({
-                "name": row[0],
+                "name": colname,
                 "type": coltype,
-                "nullable": True,
-                "default": None,
-                "autoincrement": False,
+                "nullable": not notnull,
+                "default": default,
+                "autoincrement": bool(pk and coltype.__class__.__name__ == "INTEGER"),
             })
         return columns
-
 
 __all__ = ["DuckDBHTTPDialect"]
