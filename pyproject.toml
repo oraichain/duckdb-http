@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "duckdb_http"
-version = "0.1.1"
+version = "0.1.2"
 description = "DuckDB HTTP dialect for SQLAlchemy"
 readme = "README.md"
 requires-python = ">=3.8"
