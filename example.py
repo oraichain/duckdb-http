@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, text    
+from sqlalchemy.engine.create import create_engine
+from sqlalchemy.sql.expression import text    
 
 if __name__ == "__main__":    
     # use password part as the API key

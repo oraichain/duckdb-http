@@ -68,7 +68,7 @@ class DuckDBHTTPDBAPI:
 
             headers = {}
             if self.api_key:
-                headers["X-API-Key"] = self.api_key
+                headers["X-API-Key"] = self.api_key            
 
             resp = requests.post(self.url, data=query, headers=headers)
             resp.raise_for_status()
@@ -133,9 +133,8 @@ class DuckDBHTTPDBAPI:
             self._row_idx = 0
 
     @staticmethod
-    def connect(username=None, password=None, host=None, port=None, **kw):        
-        basic_auth = f"{username}:{password}"
-        full_host = f"{basic_auth}@{host}" if basic_auth else host
+    def connect(username=None, password=None, host=None, port=None, **kw):                
+        full_host = f"{username}:{password}@{host}" if username and password else host
         url = f"http://{full_host}:{port}/"        
         return DuckDBHTTPDBAPI.Connection(url, kw.get("api_key"), (kw.get("read_only") or "").lower() == "true")
 
@@ -149,17 +148,68 @@ class DuckDBHTTPDialect(default.DefaultDialect):
     supports_schemas = True
     supports_native_decimal = True
 
-    # Static type map
+    # Expand type mapping so your schema works well
     _type_map = {
-        "INT": sqltypes.Integer,
-        "CHAR": sqltypes.String,
-        "TEXT": sqltypes.String,
-        "DOUBLE": sqltypes.Float,
-        "FLOAT": sqltypes.Float,
-        "DECIMAL": sqltypes.Float,
+        # Numeric
+        "TINYINT": sqltypes.SmallInteger,     # 1-byte signed int
+        "SMALLINT": sqltypes.SmallInteger,    # 2-byte signed int
+        "INT2": sqltypes.SmallInteger,        # alias
+        "INTEGER": sqltypes.Integer,          # 4-byte signed int
+        "INT4": sqltypes.Integer,             # alias
+        "BIGINT": sqltypes.BigInteger,        # 8-byte signed int
+        "INT8": sqltypes.BigInteger,          # alias
+        "UBIGINT": sqltypes.BigInteger,       # unsigned bigint
+        "UTINYINT": sqltypes.Integer,         # unsigned tinyint
+        "USMALLINT": sqltypes.Integer,        # unsigned smallint
+        "UINTEGER": sqltypes.Integer,         # unsigned integer
+        "HUGEINT": sqltypes.Numeric,          # 128-bit signed
+        "UHUGEINT": sqltypes.Numeric,         # 128-bit unsigned
+        "DECIMAL": sqltypes.Numeric,          # alias NUMERIC
+        "NUMERIC": sqltypes.Numeric,
+        "REAL": sqltypes.Float,               # 4-byte float
+        "FLOAT4": sqltypes.Float,             # alias
+        "DOUBLE": sqltypes.Float,             # 8-byte float
+        "FLOAT8": sqltypes.Float,             # alias
+        "FLOAT": sqltypes.Float,              # alias DOUBLE
+
+        # Boolean
         "BOOLEAN": sqltypes.Boolean,
+
+        # Character / String
+        "CHAR": sqltypes.CHAR,
+        "VARCHAR": sqltypes.String,
+        "STRING": sqltypes.String,
+        "TEXT": sqltypes.Text,
+
+        # Date & Time
         "DATE": sqltypes.Date,
+        "TIME": sqltypes.Time,
         "TIMESTAMP": sqltypes.TIMESTAMP,
+        "DATETIME": sqltypes.DateTime,
+        "TIMESTAMP WITH TIME ZONE": sqltypes.TIMESTAMP(timezone=True),
+        "TIMESTAMPTZ": sqltypes.TIMESTAMP(timezone=True),
+        "INTERVAL": sqltypes.Interval,
+
+        # Binary
+        "BLOB": sqltypes.LargeBinary,
+        "BYTEA": sqltypes.LargeBinary,
+
+        # JSON
+        "JSON": sqltypes.JSON,
+
+        # Spatial (DuckDB has PostGIS-style)
+        "GEOMETRY": sqltypes.String,  # could be custom type if needed
+        "GEOGRAPHY": sqltypes.String,
+
+        # Special / Complex
+        "UUID": sqltypes.String(36), 
+        "MAP": sqltypes.JSON,         # map<k,v>
+        "ARRAY": sqltypes.ARRAY(sqltypes.String),  # fallback, refine later
+        "STRUCT": sqltypes.JSON,      # nested struct -> JSON
+        "UNION": sqltypes.JSON,       # variant type
+
+        # Aliases
+        "INT": sqltypes.Integer,
     }
 
     @classmethod
@@ -210,12 +260,12 @@ class DuckDBHTTPDialect(default.DefaultDialect):
         result = connection.execute(sql)
         return [row[0] for row in result.fetchall()]
 
-    def get_columns(self, connection, table_name, schema=None, **kw):
+    def get_columns(self, connection, table_name, schema=None, **kw):        
         full_table = f"{schema}.{table_name}" if schema else table_name
         sql = text(f"DESCRIBE {full_table}")
         result = connection.execute(sql)
         columns = []
-        for row in result.fetchall():
+        for row in result.fetchall():            
             coltype = self._map_type(row[1])
             columns.append({
                 "name": row[0],
