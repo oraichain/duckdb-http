@@ -16,14 +16,13 @@ A lightweight SQLAlchemy dialect/plugin for connecting to **DuckDB**, on top of 
 ## Installation
 
 ```bash
-# Install DuckDB and SQLAlchemy
-pip install duckdb sqlalchemy
+git clone https://github.com/oraichain/duckdb-http.git
 ```
 
 Then, install this plugin (if packaged locally):
 
 ```bash
-pip install duckdb_http
+pip install duckdb-http
 ```
 
 ---
