@@ -16,7 +16,7 @@ A lightweight SQLAlchemy dialect/plugin for connecting to **DuckDB**, on top of 
 ## Installation
 
 ```bash
-pip install duckdb-http
+pip install duckdb_http
 ```
 
 ---

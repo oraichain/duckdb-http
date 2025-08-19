@@ -72,13 +72,10 @@ class DuckDBHTTPDBAPI:
 
             resp = requests.post(self.url, data=query, headers=headers)
             resp.raise_for_status()
-
-            try:
-                payloads = resp.json()  # JSON array
-            except ValueError:
-                # line-delimited JSON
-                lines = [line.strip() for line in resp.text.splitlines() if line.strip()]
-                payloads = [json.loads(line) for line in lines if line]
+            
+            # line-delimited JSON
+            lines = resp.text.splitlines()
+            payloads = [json.loads(line) for line in lines if line]
 
             self._process_payloads(payloads)
             return self
