@@ -6,7 +6,7 @@ setup(
     packages=find_packages(),
     entry_points={
         "sqlalchemy.dialects": [
-            "duckdb_http = duckdb_http:DuckDBHTTPDialect",
+            "duckdb_http = duckdb_http.dialect:DuckDBHTTPDialect",
         ],
     },
     install_requires=["duckdb==1.3.2", "sqlalchemy==1.4.54", "requests", "sqlglot==27.6.0"],

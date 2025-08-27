@@ -22,4 +22,4 @@ Homepage = "https://github.com/oraichain/duckdb-http.git"
 Repository = "https://github.com/oraichain/duckdb-http.git"
 
 [project.entry-points."sqlalchemy.dialects"]
-duckdb_http = "duckdb_http:DuckDBHTTPDialect"
+duckdb_http = "duckdb_http.dialect:DuckDBHTTPDialect"
