@@ -1,13 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
-setup(
-    name="duckdb_http",
-    version="0.1",
-    packages=find_packages(),
-    entry_points={
-        "sqlalchemy.dialects": [
-            "duckdb_http = duckdb_http.dialect:DuckDBHTTPDialect",
-        ],
-    },
-    install_requires=["duckdb==1.3.2", "sqlalchemy==1.4.54", "requests", "sqlglot==27.6.0"],
-)
+if __name__ == "__main__":
+    setup()
