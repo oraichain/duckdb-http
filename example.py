@@ -1,6 +1,6 @@
 from sqlalchemy.engine.create import create_engine
 from sqlalchemy.orm import Session
-from sqlalchemy import String, Integer, Float, BigInteger, Column, TIMESTAMP
+from sqlalchemy import String, Float, BigInteger, Column, TIMESTAMP
 from sqlalchemy.orm import DeclarativeBase
 
 
