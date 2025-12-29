@@ -4,24 +4,25 @@ from sqlalchemy.engine import default
 from sqlalchemy import types as sqltypes
 from sqlalchemy.sql.expression import text
 from sqlalchemy.engine.reflection import cache
+from sqlalchemy.engine.interfaces import ReflectedPrimaryKeyConstraint
 from sqlglot import parse_one, exp
+
 
 def is_read_only(sql: str) -> bool:
     tree = parse_one(sql, error_level="ignore")
     if tree is None:
         return False
 
-    # Regular SELECT / UNION queries
     if isinstance(tree, (exp.Select, exp.Union)):
         return True
 
-    # SHOW / PRAGMA / EXPLAIN and similar commands
     if isinstance(tree, exp.Command):
         cmd = (tree.name or "").upper()
         if cmd in {"SHOW", "PRAGMA", "EXPLAIN"}:
             return True
 
     return False
+
 
 # --- DBAPI stub ---
 class DuckDBHTTPDBAPI:
@@ -62,18 +63,16 @@ class DuckDBHTTPDBAPI:
             if parameters:
                 query = query % parameters
 
-            # support read-only
             if self.read_only and not is_read_only(query):
                 raise PermissionError(f"Blocked non-read query: {query}")
 
             headers = {}
             if self.api_key:
-                headers["X-API-Key"] = self.api_key            
+                headers["X-API-Key"] = self.api_key
 
             resp = requests.post(self.url, data=query, headers=headers)
             resp.raise_for_status()
-            
-            # line-delimited JSON
+
             lines = resp.text.splitlines()
             payloads = [json.loads(line) for line in lines if line]
 
@@ -94,11 +93,15 @@ class DuckDBHTTPDBAPI:
             if all(isinstance(p, dict) for p in payloads):
                 cols = list(payloads[0].keys())
                 self._results = [tuple(p.get(c) for c in cols) for p in payloads]
-                self.description = [(col, None, None, None, None, None, None) for col in cols]
+                self.description = [
+                    (col, None, None, None, None, None, None) for col in cols
+                ]
             elif all(isinstance(p, (list, tuple)) for p in payloads):
                 self._results = [tuple(p) for p in payloads]
-                self.description = [(f"col{i}", None, None, None, None, None, None)
-                                    for i in range(len(self._results[0]))]
+                self.description = [
+                    (f"col{i}", None, None, None, None, None, None)
+                    for i in range(len(self._results[0]))
+                ]
             else:
                 self._results = [(str(p),) for p in payloads]
                 self.description = [("col0", None, None, None, None, None, None)]
@@ -114,12 +117,12 @@ class DuckDBHTTPDBAPI:
             return None
 
         def fetchmany(self, size=1):
-            rows = self._results[self._row_idx:self._row_idx + size]
+            rows = self._results[self._row_idx : self._row_idx + size]
             self._row_idx += len(rows)
             return rows
 
         def fetchall(self):
-            rows = self._results[self._row_idx:]
+            rows = self._results[self._row_idx :]
             self._row_idx = self.rowcount
             return rows
 
@@ -130,10 +133,12 @@ class DuckDBHTTPDBAPI:
             self._row_idx = 0
 
     @staticmethod
-    def connect(username=None, password=None, host=None, port=None, **kw):                
+    def connect(username=None, password=None, host=None, port=None, **kw):
         full_host = f"{username}:{password}@{host}" if username and password else host
-        url = f"http://{full_host}:{port}/"        
-        return DuckDBHTTPDBAPI.Connection(url, kw.get("api_key"), (kw.get("read_only") or "").lower() == "true")
+        url = f"http://{full_host}:{port}/"
+        return DuckDBHTTPDBAPI.Connection(
+            url, kw.get("api_key"), (kw.get("read_only") or "").lower() == "true"
+        )
 
 
 # --- SQLAlchemy Dialect ---
@@ -145,40 +150,32 @@ class DuckDBHTTPDialect(default.DefaultDialect):
     supports_schemas = True
     supports_native_decimal = True
 
-    # Expand type mapping so your schema works well
     _type_map = {
-        # Numeric
-        "TINYINT": sqltypes.SmallInteger,     # 1-byte signed int
-        "SMALLINT": sqltypes.SmallInteger,    # 2-byte signed int
-        "INT2": sqltypes.SmallInteger,        # alias
-        "INTEGER": sqltypes.Integer,          # 4-byte signed int
-        "INT4": sqltypes.Integer,             # alias
-        "BIGINT": sqltypes.BigInteger,        # 8-byte signed int
-        "INT8": sqltypes.BigInteger,          # alias
-        "UBIGINT": sqltypes.BigInteger,       # unsigned bigint
-        "UTINYINT": sqltypes.Integer,         # unsigned tinyint
-        "USMALLINT": sqltypes.Integer,        # unsigned smallint
-        "UINTEGER": sqltypes.Integer,         # unsigned integer
-        "HUGEINT": sqltypes.Numeric,          # 128-bit signed
-        "UHUGEINT": sqltypes.Numeric,         # 128-bit unsigned
-        "DECIMAL": sqltypes.Numeric,          # alias NUMERIC
+        "TINYINT": sqltypes.SmallInteger,
+        "SMALLINT": sqltypes.SmallInteger,
+        "INT2": sqltypes.SmallInteger,
+        "INTEGER": sqltypes.Integer,
+        "INT4": sqltypes.Integer,
+        "BIGINT": sqltypes.BigInteger,
+        "INT8": sqltypes.BigInteger,
+        "UBIGINT": sqltypes.BigInteger,
+        "UTINYINT": sqltypes.Integer,
+        "USMALLINT": sqltypes.Integer,
+        "UINTEGER": sqltypes.Integer,
+        "HUGEINT": sqltypes.Numeric,
+        "UHUGEINT": sqltypes.Numeric,
+        "DECIMAL": sqltypes.Numeric,
         "NUMERIC": sqltypes.Numeric,
-        "REAL": sqltypes.Float,               # 4-byte float
-        "FLOAT4": sqltypes.Float,             # alias
-        "DOUBLE": sqltypes.Float,             # 8-byte float
-        "FLOAT8": sqltypes.Float,             # alias
-        "FLOAT": sqltypes.Float,              # alias DOUBLE
-
-        # Boolean
+        "REAL": sqltypes.Float,
+        "FLOAT4": sqltypes.Float,
+        "DOUBLE": sqltypes.Float,
+        "FLOAT8": sqltypes.Float,
+        "FLOAT": sqltypes.Float,
         "BOOLEAN": sqltypes.Boolean,
-
-        # Character / String
         "CHAR": sqltypes.CHAR,
         "VARCHAR": sqltypes.String,
         "STRING": sqltypes.String,
         "TEXT": sqltypes.Text,
-
-        # Date & Time
         "DATE": sqltypes.Date,
         "TIME": sqltypes.Time,
         "TIMESTAMP": sqltypes.TIMESTAMP,
@@ -186,31 +183,21 @@ class DuckDBHTTPDialect(default.DefaultDialect):
         "TIMESTAMP WITH TIME ZONE": sqltypes.TIMESTAMP(timezone=True),
         "TIMESTAMPTZ": sqltypes.TIMESTAMP(timezone=True),
         "INTERVAL": sqltypes.Interval,
-
-        # Binary
         "BLOB": sqltypes.LargeBinary,
         "BYTEA": sqltypes.LargeBinary,
-
-        # JSON
         "JSON": sqltypes.JSON,
-
-        # Spatial (DuckDB has PostGIS-style)
-        "GEOMETRY": sqltypes.String,  # could be custom type if needed
+        "GEOMETRY": sqltypes.String,
         "GEOGRAPHY": sqltypes.String,
-
-        # Special / Complex
-        "UUID": sqltypes.String(36), 
-        "MAP": sqltypes.JSON,         # map<k,v>
-        "ARRAY": sqltypes.ARRAY(sqltypes.String),  # fallback, refine later
-        "STRUCT": sqltypes.JSON,      # nested struct -> JSON
-        "UNION": sqltypes.JSON,       # variant type
-
-        # Aliases
+        "UUID": sqltypes.String(36),
+        "MAP": sqltypes.JSON,
+        "ARRAY": sqltypes.ARRAY(sqltypes.String),
+        "STRUCT": sqltypes.JSON,
+        "UNION": sqltypes.JSON,
         "INT": sqltypes.Integer,
     }
 
     @classmethod
-    def dbapi(cls):
+    def import_dbapi(cls):  # type: ignore
         return DuckDBHTTPDBAPI
 
     @staticmethod
@@ -221,10 +208,9 @@ class DuckDBHTTPDialect(default.DefaultDialect):
                 return typ
         return sqltypes.String
 
-    # -----------------------------
-    # Schema / Table Reflection
-    # -----------------------------
-    def get_pk_constraint(self, connection, table_name, schema=None, **kw):
+    def get_pk_constraint(
+        self, connection, table_name, schema=None, **kw
+    ) -> ReflectedPrimaryKeyConstraint:
         full_table = f"{schema}.{table_name}" if schema else table_name
         sql = text(f"PRAGMA table_info('{full_table}')")
         result = connection.execute(sql)
@@ -238,49 +224,54 @@ class DuckDBHTTPDialect(default.DefaultDialect):
         return []
 
     def get_multi_indexes(self, connection, schema=None, filter_names=None, **kw):
-        return []
+        if False:  # no multi-indexes, so yield nothing
+            yield
 
     def get_view_names(self, connection, schema=None, **kw):
-        sql = text(f"SELECT table_name FROM information_schema.tables WHERE table_type='VIEW' AND table_schema = '{schema}'")
+        sql = text(
+            f"SELECT table_name FROM information_schema.tables WHERE table_type='VIEW' AND table_schema = '{schema}'"
+        )
         result = connection.execute(sql)
         return [row.table_name for row in result]
 
-    @cache # type: ignore[call-arg]
+    @cache  # type: ignore[call-arg]
     def get_schema_names(self, connection, **kw):
-        sql = text("SELECT DISTINCT schema_name AS nspname FROM duckdb_schemas() ORDER BY nspname")
+        sql = text(
+            "SELECT DISTINCT schema_name AS nspname FROM duckdb_schemas() ORDER BY nspname"
+        )
         result = connection.execute(sql)
         return [row.nspname for row in result]
 
-    @cache # type: ignore[call-arg]
+    @cache  # type: ignore[call-arg]
     def get_table_names(self, connection, schema=None, **kw):
-        where =  f" WHERE schema_name='{schema}'" if schema else ""
+        where = f" WHERE schema_name='{schema}'" if schema else ""
         sql = text(f"SELECT table_name FROM duckdb_tables(){where}")
         result = connection.execute(sql)
         return [row.table_name for row in result]
 
     def get_columns(self, connection, table_name, schema=None, **kw):
-        # Fully qualified table name
         full_table = f"{schema}.{table_name}" if schema else table_name
-
-        # Use PRAGMA table_info instead of DESCRIBE
         sql = text(f"PRAGMA table_info('{full_table}')")
         result = connection.execute(sql)
 
         columns = []
         for row in result:
-            colname = row[1]          # "name"
-            coltype = self._map_type(row[2])  # "type"
-            notnull = row[3]          # 1 = NOT NULL, 0 = NULLABLE
-            default = row[4]          # default value (as SQL expression string)
-            pk = row[5]               # >0 if part of primary key
+            colname = row[1]
+            coltype = self._map_type(row[2])
+            notnull = row[3]
+            default = row[4]
+            pk = row[5]
 
-            columns.append({
-                "name": colname,
-                "type": coltype,
-                "nullable": not notnull,
-                "default": default,
-                "autoincrement": bool(pk and coltype.__class__.__name__ == "INTEGER"),
-            })
+            columns.append(
+                {
+                    "name": colname,
+                    "type": coltype,
+                    "nullable": not notnull,
+                    "default": default,
+                    "autoincrement": bool(pk and isinstance(coltype, sqltypes.Integer)),
+                }
+            )
         return columns
+
 
 __all__ = ["DuckDBHTTPDialect"]
